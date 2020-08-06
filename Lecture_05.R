@@ -1,15 +1,18 @@
-#-------------------------------------------------------------------------------------
-# USAGE OF R IS NOT ASSESSABLE FOR ECMT2130.
-#
+#-------------------------------------------------------------------------------------#
+# ECMT2130 Financial Econometrics
 # Written by Geoff Shuetrim
-# Tutorial 03: Linear regression to analyse abnormal stock returns (Jensen 1967)
+# Lecture 05: Tests of the CAPM
 #
 # Data source (Ken French)
 # https://mba.tuck.dartmouth.edu/pages/faculty/ken.french/data_library.html#Benchmarks
 #
 # Industry definitions
 # https://mba.tuck.dartmouth.edu/pages/faculty/ken.french/Data_Library/det_49_ind_port.html
-# 
+#
+# Topics:
+#
+# - CAPM testing
+#
 #-------------------------------------------------------------------------------------
 
 # Load the data
@@ -19,7 +22,7 @@
 library(readxl)
 
 # Read data from spreadsheet in same folder as this R script.
-myData <- read_excel("Tutorial03_industry_monthly_returns.xlsx")
+myData <- read_excel("Fama_French_industry_monthly_returns.xlsx")
 
 # Create the excess market return over the risk free return
 myData$excessMarketReturn = myData$RM - myData$RF
@@ -49,7 +52,7 @@ for (industryName in industryNames) {
   estimationData <- subset(myData,myData$Year>=1970 & myData$Year<2010)
   myModel <- lm(excessIndustryReturn ~ excessMarketReturn, data=estimationData)
   mySummary <- summary(myModel)
-
+  
   print(mySummary)
   # Extract the information to use in assessing industries
   alpha <- mySummary[["coefficients"]]["(Intercept)", "Estimate"]
@@ -59,16 +62,16 @@ for (industryName in industryNames) {
   betaT <- mySummary[["coefficients"]]["excessMarketReturn", "t value"]
   betaP <- mySummary[["coefficients"]]["excessMarketReturn", "Pr(>|t|)"]
   R <- mySummary[["r.squared"]]
-
+  
   # Measure out of sample alpha  
   heldBackData <- subset(myData,myData$Year>=2010)
-
+  
   inSampleIndustryReturn <- 100*( prod(1 + estimationData[,industryName]/100 ) ^ (1/nrow(estimationData)) - 1)
   inSampleMarketReturn <- 100*( prod(1 + estimationData[,"RM"]/100 ) ^ (1/nrow(estimationData)) - 1)
   inSampleRiskFreeReturn <- 100*( prod(1 + estimationData[,"RF"]/100 ) ^ (1/nrow(estimationData)) - 1)
   expectedPerformance = alpha + (beta-1) * (inSampleMarketReturn - inSampleRiskFreeReturn)
   inSampleActualPerformance = (inSampleIndustryReturn - inSampleMarketReturn)
-
+  
   outSampleIndustryReturn <- 100*( prod(1 + heldBackData[,industryName]/100 ) ^ (1/nrow(heldBackData)) - 1)
   outSampleMarketReturn <- 100*( prod(1 + heldBackData[,"RM"]/100 ) ^ (1/nrow(heldBackData)) - 1)
   outSampleRiskFreeReturn <- 100*( prod(1 + heldBackData[,"RF"]/100 ) ^ (1/nrow(heldBackData)) - 1)
@@ -92,4 +95,7 @@ results[indx] <- lapply(results[indx], function(x) as.numeric(as.character(x)))
 # Write results to CSV file if you want to analyse the output in Excel.
 write.table(results, "Tutorial03_results.csv", append = FALSE, sep = ",", dec = ".",
             row.names = FALSE, col.names = TRUE)
+
+
+
 

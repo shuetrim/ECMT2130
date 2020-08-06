@@ -1,63 +1,216 @@
 #------------------------------------------------------------------------------------------
-#
 # ECMT2130 Financial Econometrics
-# Lecture 1
+# Written by Geoff Shuetrim
+# Lecture 01: Introduction to R
 #
+# Topics:
 #
-# Topic 1: Portfolio optimization
+# - Getting to know R and R-Studio
 #
+# - R Studio installation instructions from Sydney University 
+#   (https://sydney.edu.au/students/student-it/apps.html)
+#   Look under the list of Apps to download onto your own device.
+#   You can do this yourself, if you wish to execute this script.
 #
-# See also http://www.finance-r.com/
+# - Introduction to using R Studio including installation help
+#   (10 minutes: https://datascienceplus.com/introduction-to-rstudio/)
+#   You can do this yourself, if you wish to execute this program.
+#
+# - Basic calculations 
+#   (https://www.cyclismo.org/tutorial/R/basicOps.html)
+#   Lots here to extend on this script.
+#
+# - Storing data in R including lists of values (data samples)
+#   (http://michaelminn.net/tutorials/r-representing-data/)
+#
+# - Matrix operations
+#
+# - Descriptive statistics 
+#   (https://www.statmethods.net/stats/descriptives.html)
 #
 #------------------------------------------------------------------------------------------
 
 #------------------------------------------------------------------------------------------
-# Configure the environment to have the right functionality.
-#
-# Make sure we have the PortfolioAnalytics package installed
-# Only run this install.packages function once.
-install.packages("PortfolioAnalytics")
-#
-# Make sure the PortfolioAnalytics package is loaded.
-library(PortfolioAnalytics)
-#
-# Documentation:
-# https://bookdown.org/sstoeckl/Tidy_Portfoliomanagement_in_R/s-4portfolios.html
-# https://cran.r-project.org/web/packages/PortfolioAnalytics/vignettes/portfolio_vignette.pdf
-# https://cran.csiro.au/web/packages/PortfolioAnalytics/PortfolioAnalytics.pdf
+# Basic calculations
 #------------------------------------------------------------------------------------------
 
-# Load the data to analyse
-data(edhec)
-R <- edhec[, 1:6]
-colnames(R) <- c("CA", "CTAG", "DS", "EM", "EQMN", "ED")
-funds <-colnames(R)
+# Simple numbers
+10
+12.5
+exp(1)
+log(exp(1)) # log() is the natural log function.
 
-# Initialise the portfolio specification using names of assets
-init <- portfolio.spec(assets=funds)
+#------------------------------------------------------------------------------------------
+# Basic calculations
+#------------------------------------------------------------------------------------------
 
-# Force weights on assets to sum to 1
-init <- add.constraint(portfolio=init, type="weight_sum",  min_sum=1, max_sum=1)
+#Multiplication and division
+10 * 4 / 2 # gives 20
 
-# Force weights to be non-negative
-#init <- add.constraint(portfolio=init, type="box", min=0.0, max=1.0)
+#Addition and subtraction
+10 - 5 + -0.5 # gives 4.5
 
-# Impose target portfolio return
-#init <- add.constraint(portfolio=init, type="return", return_target=0.014)
+# powers
+10^2 # gives 100
+16.0^0.5 # gives 4
+sqrt(9) # gives 3
 
-# Add risk minimisation objective
-minvar <- add.objective(portfolio=init, type="risk", name="var")
+# Natural logs (base e)
 
-# Show the efficient frontier
-efficientFrontier <- create.EfficientFrontier(R=R, portfolio = minvar, type = "mean-sd", n.portfolios = 25)
-chart.EfficientFrontier(efficientFrontier, match.col = "StdDev", n.portfolios = 25, xlim=NULL, ylim=NULL,
-                        cex.axis = 0.8, element.color = "darkgray", main = "Efficient Frontier",
-                        RAR.text = "SR", rf = 0.001, tangent.line = TRUE, cex.legend = 0.8,
-                        chart.assets = TRUE, labels.assets = TRUE, pch.assets = 21,
-                        cex.assets = 0.8)
+# gives 1.3 
+log(exp(1.3)) 
+# because exp(3) is e to the power of 3) 
+# and log(.) is the log to base e.
 
-# Solve for the optimal weights in the portfolio
-opt_minvar <- optimize.portfolio(R=R, portfolio=minvar, optimize_method="ROI", trace=TRUE)
-print(opt_minvar)
-plot(opt_minvar, risk.col="StdDev", return.col="mean", main="Minimum Variance Optimization", chart.assets=TRUE, xlim=c(0, 0.05), ylim=c(0,0.015))
+#------------------------------------------------------------------------------------------
+# Storing results in variables in the global environment 
+#------------------------------------------------------------------------------------------
+
+a <- 10^3
+# See the newly created value for 'a' (1000) in the environment 
+# tab in top right panel.
+# alternative = syntax
+a = 10^2
+
+# Show the value of a
+a
+
+# Get the datatype of a
+typeof(a)
+
+# Storing text in "character strings"
+textValue <- "Hello, world!"
+textValue
+typeof(textValue)
+
+# Boolean (true/false) values
+y <- 7 < 5
+y
+typeof(y)
+
+# The square root of a is 10 because a=100
+sqrt(a) 
+
+# Comparisons
+sqrt(a) == 10
+
+#------------------------------------------------------------------------------------------
+# Lists of values
+#------------------------------------------------------------------------------------------
+
+# Create a list of values called X. This is a data sample.
+X <- c(1,2,3,5,3,7)
+
+# See the data type of the values stored in X.
+# Have a look at X in the environment tab also!
+typeof(X)
+
+# View X
+X
+
+# get 1st observation in the sample
+X[1]
+
+# get 4th observation in the sample
+X[4]
+
+# Get the 2nd and 5th observations in the sample
+X[c(2,5)]
+
+# Get a sub-sample of values 2 to 5 from within the sample.
+X[2:5]
+
+#------------------------------------------------------------------------------------------
+# Matrix operations
+# https://www.statmethods.net/advstats/matrix.html
+#------------------------------------------------------------------------------------------
+# Create a matrix
+
+# Matrix transpose
+
+# Matrix determinant
+
+# Matrix multiplication
+
+# Matrix inversion
+
+# Test if matrix is positive definite
+
+# Get diagonal of matrix
+
+# Matrix eigenvalues
+
+# Cholesky decomposition and generating correlated data
+
+
+#------------------------------------------------------------------------------------------
+# Descriptive statistics
+#------------------------------------------------------------------------------------------
+
+# Summarise the list of values in the sample.
+summary(X)
+
+# Use the inbuilt function to compute the mean (average)
+X_mean <- mean(X)
+X_mean
+
+# Define out own function to 
+# compute the geometric mean of a sample
+my_geometricMean <- function(x) {
+  prod(x)^(1/length(x))
+}
+
+# Use the newly defined function to get the
+# geometric mean of our sample, X
+X_geometric_mean = my_geometricMean(X)
+X_geometric_mean
+
+# Create an alternative, logarithm-based function for the
+# geometric mean. 
+my_geometricMean2 <- function(x) {
+  exp( (1/length(x)) * sum(log(x)) )
+}
+X_geometric_mean2 <- my_geometricMean2(X)
+X_geometric_mean2
+
+# Make sure the two formulae give the same result for
+# the geometric mean
+X_geometric_mean == X_geometric_mean2
+
+# Use the inbuilt function to compute the Median of X
+X_median <- median(X)
+X_median
+
+# Quartiles - computed using the inbuilt qantiles function.
+
+# Get information about this quantiles function.
+help("quantile") # Note 9 different types.
+
+# Use the type of quantile that is defined in lecture 1.
+X_quantiles <- quantile(X, type=6)
+X_first_quartile <- X_quantiles[2]
+X_third_quartile <- X_quantiles[4]
+
+# Check median function
+X_quantiles[3] == X_median
+
+# Compute the range of the sample X as the 
+# difference betweeen the maximum and minimum value in X
+X_range = max(X) - min(X)
+X_range
+
+# Compute the interquartile range.
+# (note there are 9 different ways to compute quartiles in R - here we choose "type 6".
+help(IQR)
+IQR(X, type=6)
+
+
+# variance
+X_variance <- var(X)
+X_variance
+
+# standard deviation
+X_stdev <- sd(X)
+X_stdev
+
 

@@ -1,15 +1,5 @@
 #-------------------------------------------------------------------------------------
-# USAGE OF R IS NOT ASSESSABLE FOR ECMT2130.
-#
+# ECMT2130 Financial Econometrics
 # Written by Geoff Shuetrim
-# Tutorial 05: ARMA models
-#
-# Covers:
-#
-# - Determination of ARMA model specification.
-#
-# - Fitting ARMA models.
-#
-# - ARMA model diagnostics.
-#
+# Tutorial 05: CAPM testing
 #-------------------------------------------------------------------------------------
