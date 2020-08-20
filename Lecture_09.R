@@ -105,11 +105,17 @@ adf.test(x1, alternative = c("stationary"), k = 1)
 # Run the following command if urca is not installed already.
 # install.packages("urca")
 library(urca)
+# Guide to interpreting test results for tests with drift or drift and trend: 
+# See original Dickey Fuller article or 
+# https://stats.stackexchange.com/questions/24072/interpreting-rs-ur-df-dickey-fuller-unit-root-test-results
+help(ur.df)
 
 # Generic augmented D-F test command
 #ur.df(y, type = c("none", "drift", "trend"), lags = 1, selectlags = c("Fixed", "AIC", "BIC")) 
 
-ur.df(x1, type = c("none"), lags = 1, selectlags = c("Fixed"))
+summary(ur.df(x1, type = c("none"), lags = 1, selectlags = c("Fixed")))
+summary(ur.df(x1, type = c("drift"), selectlags = c("AIC")))
+summary(ur.df(x1, type = c("trend"), selectlags = c("AIC")))
 
 #-------------------------------------------------------------------------------------
 # Phillips Perron test for unit root:
@@ -139,22 +145,3 @@ kpss.test(arima.sim(list(order = c(0,0,0)), n=T, mean=mu, sd = sigma), null = c(
 kpss.test(arima.sim(list(order = c(1,0,0), ar=c(0.99)), n=100, mean=mu, sd = sigma), null = c("Level"))
 # Try this with different values of n and the AR coefficient.
 
-#-------------------------------------------------------------------------------------
-# Test for unit root in a stock index
-#-------------------------------------------------------------------------------------
-
-# Make sure that the readxl package of functionality is available.
-# Run the following command if readxl is not installed already.
-# install.packages("readxl")
-library(readxl)
-
-# Read data from spreadsheet in same folder as this R script.
-equityIndexData <- read_excel("lecture_09_monthly_stock_index.xlsx")
-
-#-------------------------------------------------------------------------------------
-# Test stationarity of Australian CPI I(0)? I(1)? I(2)?
-#-------------------------------------------------------------------------------------
-
-# Get Latest CPI from ABS website.
-# https://www.abs.gov.au/ausstats/abs@.nsf/mf/6401.0
-consumerPriceIndexData <- read_excel("Lecture_09_Australia_CPI.xlsx")

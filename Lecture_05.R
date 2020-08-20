@@ -93,7 +93,7 @@ indx["industry"] = FALSE
 results[indx] <- lapply(results[indx], function(x) as.numeric(as.character(x)))
 
 # Write results to CSV file if you want to analyse the output in Excel.
-write.table(results, "Tutorial03_results.csv", append = FALSE, sep = ",", dec = ".",
+write.table(results, "Lecture_05_results.csv", append = FALSE, sep = ",", dec = ".",
             row.names = FALSE, col.names = TRUE)
 
 

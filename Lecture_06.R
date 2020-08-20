@@ -5,7 +5,6 @@
 #
 # Topics:
 #
-# - Industry Portfolios
 # - Multiple regression complex restrictions on coefficients.
 # - Principle component analysis and interpretation.
 #
@@ -117,8 +116,10 @@ fStar = ( (restrictedSSR - unrestrictedSSR) / 1 ) / ( (unrestrictedSSR) / (n-3) 
 pValue = 1-pf(fStar,1,n-3)
 pValue
 
+
 #-------------------------------------------------------------------------------------
-# Analysis of relationship of industry return principle components and factors.
+# Principle components analysis
+# - Packages: corrplot for correlation matrix graphs and factoextra for PCA graphical analysis
 #-------------------------------------------------------------------------------------
 
 # Run the install packages command once if factoextra is not installed already.
@@ -129,58 +130,137 @@ library(factoextra)
 # install.packages("corrplot")
 library(corrplot)
 
+#-------------------------------------------------------------------------------------
+# Analysis of relationship of industry return principle components and factors.
+#-------------------------------------------------------------------------------------
+
+# Generate the principle components as i.i.d. standard normal variates (these are typically not observed)
+observationCount = 1000
+componentCount <- 2
+principleComponents <- matrix( rnorm(observationCount*componentCount,mean=0,sd=1), observationCount, componentCount) 
+
+# Confirm rows and columns of the matrix containing the principle components
+dim(principleComponents)
+
+# Create square matrix of weights that maps the principle components to the observed data 
+# Initial mapping is just 1:1 - each observed variable is a principle component
+weights = diag(replicate(1,componentCount))
+
+# Try increasing the multiple of the first principle component that gives us the first observed variable
+# What effect does this have on the ability to identify the "true" principle component with scaling TRUE and FALSE.
+weights[1,1] = 1
+
+# Alternatively try to make the second observed variable a larger multiple of the first principle component
+# What effect does this have on the ability to identify the "true" principle component with scaling TRUE and FALSE.
+weights[1,1] = 4
+
+data <- principleComponents %*% weights
+
+# Confirm rows and columns of the matrix containing the observed data
+dim(data)
+
+# Do the principle components analysis: Try with all observed variables scaled to have the same standard deviation (and without).
+pcaResults <- prcomp(data, center = TRUE, scale. = FALSE)
+(eigenvalues = get_eig(pcaResults))
+fviz_eig(pcaResults)
+
+#fviz_pca_var(pcaResults, axes = c(1, 2))
+#fviz_pca_var(pcaResults, axes = c(3, 4))
+
+estimatedPrincipleComponents <- pcaResults$x
+dim(estimatedPrincipleComponents)
+
+# Concatenate (columnwise) actual principle components and estimated principle components
+pcs <- data.frame(cbind(principleComponents,estimatedPrincipleComponents))
+dim(pcs)
+
+# Plot the correlations and focus attention on the top right quadrant.
+corrplot(cor(pcs), method = "ellipse")
+
+pc1Model <- lm(V1 ~ 0 + PC1 + PC2, data = pcs)
+
+# Scatter plot of predicted and actual values of variable 1
+plot(predict(pc1Model), pcs$V1)
+
+# What do you notice about the coefficient values on the two principle components.
+# Run it several times with different random samples - does anything change between runs?
+summary(pc1Model)
+
+pc1Modelb <- lm(V1 ~ 0 + PC1, data = pcs)
+
+# Scatter plot of predicted and actual values of variable 1
+plot(predict(pc1Modelb), pcs$V1)
+
+# Compare the coefficient value to the one obtained from the regression on two regressors.
+summary(pc1Modelb)
+
+#-------------------------------------------------------------------------------------
+# Analysis of relationship of industry return principle components and factors.
+#-------------------------------------------------------------------------------------
+
 # Load the data
-# Make sure that the readxl package of functionality is available.
-# Run the following command once if readxl is not installed already.
-# install.packages("readxl")
 library(readxl)
 
+library(xts)
+
 # Read data from spreadsheet in same folder as this R script.
-myData <- read_excel("Fama_French_industry_monthly_returns.xlsx")
+# Note these are the value-weighted returns for each industry
+data <- read_excel("Fama_French_industry_monthly_returns.xlsx")
 
-myData <- myData[myData$Year > 2000,]
+# Get the dates for each observation
+dates <- as.Date(data$Date)
 
-# Get excess returns for market and industries, over the risk free return.
-myData[,9:ncol(myData)] <- myData[,9:ncol(myData)] - myData$RF
-myData$RM <- myData$RM - myData$RF
+# Get names of industries
+industries <- colnames(data[9:ncol(data)])
 
-# Plot correlation structure.
-res <- cor(myData[,c(5,6,7,9:ncol(myData))], method="pearson")
-corrplot::corrplot(res, method= "color", order = "hclust", tl.pos = 'n')
+# Remove the non-numeric data columns
+data <- data[,5:ncol(data)]
 
-# Get excess industry returns as the data to apply PCA to.
-xData <- myData[,9:ncol(myData)]
+# Convert market and industry returns into excess returns while still working with a data frame.
+data$RM = (data$RM - data$RF)
+data[,industries] = (data[,industries] - data$RF)
 
-# Normalise the data to zero mean and unit variance
-xData.norm <- data.frame(scale(xData))
+# Create the extended timeseries object needed for portfolio analytics
+dataXTS <- xts(data, order.by=dates)
+
+# Normalise data (zero mean and unit standard deviation)
+help(scale) # Find out more about the scaling function
+normDataXTS <- dataXTS
+normDataXTS$RM = scale(dataXTS$RM)
+normDataXTS$SMB = scale(dataXTS$SMB)
+normDataXTS$HML = scale(dataXTS$HML)
+normDataXTS[,industries] = scale(data[,industries])
+
+# Choose the time span of interest
+timespan = "19800101/20001231"
+
+# Plot correlation structure among the three factors in the fama-french 3 factor model
+corrplot(cor(dataXTS[timespan][,c("RM", "SMB", "HML", industries)]), method = "ellipse")
 
 # Do PCA
-xData.pca <- prcomp(xData.norm, center=TRUE, scale.=TRUE)
+pca <- prcomp(normDataXTS[timespan][,c("PerSv","BusSv","Hardw", "Softw", "Chips", "LabEq")], center=TRUE, scale.=TRUE)
 
-# Visualise importance of each principle component
-fviz_eig(xData.pca)
+# Get the eigenvalues and associated information
+(eigenvalues = get_eig(pca))
 
-# Visualise industry returns, explained by the first 2 principle components.
-fviz_pca_var(xData.pca,axes = c(1, 2))
+# Note that eigenvalues obtain from the computed standard deviations of the principle components
+pca$sdev^2
 
-principleComponents <- as.data.frame(xData.pca$x)
+#Visualse the importance of each principle component
+fviz_eig(pca)
 
-# Get the variable to relate to to the principle components of the industry excess returns
-# Change SMB to HML or RM as required...
-yData.norm <- data.frame(scale(myData$RM))
-colnames(yData.norm)<- c("y")
+# Visualise industry returns, explained by the various principle components.
+fviz_pca_var(pca,axes = c(1, 2))
+fviz_pca_var(pca,axes = c(3, 4))
+fviz_pca_var(pca,axes = c(5, 6))
 
-ols.data <- cbind(yData.norm, principleComponents)
+# Get the principle components and augment with the market excess return
+principleComponents <- as.data.frame(pca$x)
+principleComponents$RM <- dataXTS[timespan]$RM
 
 # Regress the factor on various sets of principle components of the industry returns
-summary(lm(y ~ ., data = ols.data))
-summary(lm(y ~ PC1 + PC2 + PC3 + PC4 + PC5, data = ols.data))
-summary(lm(y ~ PC1 + PC2 + PC3 + PC4, data = ols.data))
-summary(lm(y ~ PC1 + PC2 + PC3, data = ols.data))
-summary(lm(y ~ PC1 + PC2, data = ols.data))
-summary(lm(y ~ PC1, data = ols.data))
+summary(lm(RM ~ PC1 + PC2 + PC3 + PC4 + PC5 + PC6, data = principleComponents))
 
-summary(xData.pca)
 
 
 

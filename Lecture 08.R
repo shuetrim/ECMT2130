@@ -22,7 +22,8 @@ n = 1000
 #-------------------------------------------------------------------------------------
 
 # install.packages("forecast")
-library("forecast")
+library(forecast)
+library(TSSS)
 
 #-------------------------------------------------------------------------------------
 # White noise.
@@ -69,6 +70,9 @@ pacf (x, lag = 10)
 help("Arima") # Part of forecast package
 (fit <- Arima(x, order=c(0,0,2), include.mean = FALSE ))
 
+# Check to make sure code = 0 incdicating that the loglikelihood maximisation succeeded.
+fit$code # If this is not equal to 0 then the fit is not reliable.
+
 # Get model diagnostics
 help("checkresiduals")
 checkresiduals(fit)
@@ -98,6 +102,9 @@ pacf (x, lag = 10)
 #-------------------------------------------------------------------------------------
 # Impulse response function: ARMA(1,2) model 
 #-------------------------------------------------------------------------------------
+# Note the signs on the MA coefficients (in the model described in the documentation details)
+# Solve the equation in the documentation for the y_t and that gives the coefficient
+# signs that are expected.
 help(armaimp)
-armaimp(arcoef = c(0.8), macoef = c(0,-0.8), v=1, n=n, lag=NULL, nf=100)
+armaimp(arcoef = c(0.8), macoef = c(0,0.8), v=1, n=n, lag=NULL, nf=100)
 

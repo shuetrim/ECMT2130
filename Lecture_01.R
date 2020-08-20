@@ -1,4 +1,4 @@
-#------------------------------------------------------------------------------------------
+j#------------------------------------------------------------------------------------------
 # ECMT2130 Financial Econometrics
 # Written by Geoff Shuetrim
 # Lecture 01: Introduction to R
@@ -24,8 +24,12 @@
 #   (http://michaelminn.net/tutorials/r-representing-data/)
 #
 # - Matrix operations
+# Some sources of assistance:
+# https://www.statmethods.net/advstats/matrix.html
+# https://www.datamentor.io/r-programming/vector/
+# https://www.datamentor.io/r-programming/matrix/
 #
-# - Descriptive statistics 
+# - Descriptive statistics
 #   (https://www.statmethods.net/stats/descriptives.html)
 #
 #------------------------------------------------------------------------------------------
@@ -122,26 +126,43 @@ X[2:5]
 
 #------------------------------------------------------------------------------------------
 # Matrix operations
-# https://www.statmethods.net/advstats/matrix.html
 #------------------------------------------------------------------------------------------
-# Create a matrix
+# Create a 2 by 2 matrix:
+# Create a 1 by 4 vector.
+A <- c(5, 2, 2, 4)
+
+# Change the dimensions of the list of numbers to be 2 by 2.
+dim(A) <- c(2, 2)
+
+# Matrix rows and columns
+nrow(A)
+ncol(A)
+
+# Matrix inverse
+solve(A)
 
 # Matrix transpose
+t(A)
 
 # Matrix determinant
+det(A)
 
 # Matrix multiplication
+A %*% A
 
-# Matrix inversion
-
-# Test if matrix is positive definite
+c(1, 1) %*% A
 
 # Get diagonal of matrix
+diag(A)
 
 # Matrix eigenvalues
+eigen(A)$val
+
+# Matrix eigenvectors
+eigen(A)$vec
 
 # Cholesky decomposition and generating correlated data
-
+chol(A)
 
 #------------------------------------------------------------------------------------------
 # Descriptive statistics
@@ -212,5 +233,4 @@ X_variance
 # standard deviation
 X_stdev <- sd(X)
 X_stdev
-
 

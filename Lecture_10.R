@@ -23,7 +23,6 @@ library(xts)
 
 #-------------------------------------------------------------------------------------
 # ARCH(2) model simulation the hard way.
-# Use tseries package for estimation
 #-------------------------------------------------------------------------------------
 n <- 1100
 a <- c(0.1, 0.5, 0.2)  # ARCH(2) coefficients
@@ -36,13 +35,13 @@ for(i in 3:n)  # Generate ARCH(2) process
 }
 x <- ts(x[101:1100])
 
-# Using tseries package GARCH estimation
-model <- garch(x, order = c(0, 2), grad="numerical")
+# Estimation of ARCH(2) or GARCH(2,0) model
+help(garchFit)
+summary(model <- garchFit(formula=~garch(2,0),data=x,trace=TRUE))
 
-summary(model)
-
+# Lots of different plot options
 plot(model)
-
+plot(model, which = 2)
 
 #-------------------------------------------------------------------------------------
 # GARCH data simulation the easy way
@@ -50,12 +49,17 @@ plot(model)
 #-------------------------------------------------------------------------------------
 help(garchSpec)
 help(garchSim)
+# garchFit parameter interpretation guidance:
+# https://stats.stackexchange.com/questions/247140/interpretation-garchfit
 
 # Simulate a GARCH(1,1) model (read help documentation to see the GARCH parameters)
 data <- garchSim(spec = garchSpec(), n = 1000, extended = FALSE)
 
 # Check the coefficient estimates - do they match those used to simulate the data? 
-summary(garchFit(formula=~garch(1,1),data=data,trace=TRUE))
+summary(model <- garchFit(formula=~garch(1,1),data=data,trace=TRUE))
+
+# Log likelihood function value:
+model@fit$value
 
 # Simulate an AR(1)-ARCH(2) model
 spec = garchSpec(model = list(ar = 0.5, alpha = c(0.3, 0.4), beta = 0))
@@ -66,8 +70,19 @@ spec = garchSpec(model = list(ar = 0.5, alpha = c(0.3, 0.4), beta = 0))
 garchSim(spec, n = 10, extended = TRUE)
 
 # ARMA(1,2)-GARCH(1,1) - use default garch coefficient values
-spec = garchSpec(model = list(ar = 0.5, ma = c(0.3, -0.3)))
-garchSim(spec, n = 10, extended = TRUE)
+spec = garchSpec(model = list(ar = 0.01, ma = c(0.3, -0.3), alpha = 0.3, beta = 0.4))
+simulatedData <- garchSim(spec, n = 50000, extended = TRUE)
+plot(simulatedData$garch, main="Observed data in simulation")
+plot(simulatedData$sigma, main="Time varying error standard deviation in simulation")
+plot(simulatedData$eps, main="N(0,1) v_t in the main equation for ARCH/GARCH")
+
+#-------------------------------------------------------------------------------------
+# Estimate the Garch model using the simulated data.
+#-------------------------------------------------------------------------------------
+summary(model <- garchFit(formula=~arma(1,2)+garch(1,1),data=simulatedData$garch,trace=TRUE))
+plot(model)
+model@fit$message # This does not seem to be a reliable indicator of convergence issues.
+model@fit$convergence
 
 #-------------------------------------------------------------------------------------
 # GARCH model of daily returns
@@ -82,9 +97,6 @@ dates = as.Date(equityIndexData$Date)
 # Note it is important to only have numeric data in the extended timeseries object columns!
 rm.xts <- xts(equityIndexData$Rm, order.by=dates)
 
-model <- garch(rm.xts, order = c(1, 1), grad="numerical")
+summary(model <- garchFit(formula=~garch(1,1),data=rm.xts,trace=TRUE))
 
-summary(model)
-
-plot(model)
 

@@ -44,7 +44,6 @@ industries <- colnames(dailyData)[9:ncol(dailyData)]
 
 dates = as.Date(dailyData$Date)
 
-
 returnsData <- xts(dailyData[,industries], order.by=dates)
 
 # Plot the time series of daily returns for various industries. Examine other industries yourself.
@@ -208,8 +207,9 @@ expectedReturns
 
 # Double check that simulated data has variance close to population variance
 var(altSimulatedReturns)
-VCOV
 
+# Compare the variance of the alternative simulated returns with the original variance-covariance matrix.
+VCOV
 
 # Compute portfolio returns and sort them into ascending order.
 altSimulatedPortfolioReturns = sort(as.matrix(altSimulatedReturns) %*% weights)
@@ -229,7 +229,6 @@ monteCarloExpectedShortfall
 
 altMonteCarloExpectedShortfall = mean(altSimulatedPortfolioReturns[1:varIndex-1])
 altMonteCarloExpectedShortfall
-
 
 #------------------------------------------------------------------------------------------
 # Backtesting the Monte Carlo VaR
