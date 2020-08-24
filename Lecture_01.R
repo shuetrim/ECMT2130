@@ -1,4 +1,4 @@
-j#------------------------------------------------------------------------------------------
+#------------------------------------------------------------------------------------------
 # ECMT2130 Financial Econometrics
 # Written by Geoff Shuetrim
 # Lecture 01: Introduction to R
@@ -33,6 +33,18 @@ j#------------------------------------------------------------------------------
 #   (https://www.statmethods.net/stats/descriptives.html)
 #
 #------------------------------------------------------------------------------------------
+
+#------------------------------------------------------------------------------------------
+# Functions
+#------------------------------------------------------------------------------------------
+
+y <- function(x1, x2, x3) {
+  
+  x1^2+x2^4+x3^6
+  
+}
+
+y(3,5,6)
 
 #------------------------------------------------------------------------------------------
 # Basic calculations
@@ -97,6 +109,13 @@ sqrt(a)
 
 # Comparisons
 sqrt(a) == 10
+
+#------------------------------------------------------------------------------------------
+# binomial theorem
+#------------------------------------------------------------------------------------------
+
+help(choose)
+choose(4,2)
 
 #------------------------------------------------------------------------------------------
 # Lists of values
@@ -172,8 +191,7 @@ chol(A)
 summary(X)
 
 # Use the inbuilt function to compute the mean (average)
-X_mean <- mean(X)
-X_mean
+(X_mean <- mean(X))
 
 # Define out own function to 
 # compute the geometric mean of a sample
@@ -183,8 +201,7 @@ my_geometricMean <- function(x) {
 
 # Use the newly defined function to get the
 # geometric mean of our sample, X
-X_geometric_mean = my_geometricMean(X)
-X_geometric_mean
+(X_geometric_mean = my_geometricMean(X))
 
 # Create an alternative, logarithm-based function for the
 # geometric mean. 
@@ -208,6 +225,7 @@ X_median
 help("quantile") # Note 9 different types.
 
 # Use the type of quantile that is defined in lecture 1.
+help(quantile)
 X_quantiles <- quantile(X, type=6)
 X_first_quartile <- X_quantiles[2]
 X_third_quartile <- X_quantiles[4]
@@ -217,20 +235,11 @@ X_quantiles[3] == X_median
 
 # Compute the range of the sample X as the 
 # difference betweeen the maximum and minimum value in X
-X_range = max(X) - min(X)
-X_range
-
-# Compute the interquartile range.
-# (note there are 9 different ways to compute quartiles in R - here we choose "type 6".
-help(IQR)
-IQR(X, type=6)
-
+(X_range = max(X) - min(X))
 
 # variance
-X_variance <- var(X)
-X_variance
+(X_variance <- var(X))
 
 # standard deviation
-X_stdev <- sd(X)
-X_stdev
+(X_stdev <- sd(X))
 
