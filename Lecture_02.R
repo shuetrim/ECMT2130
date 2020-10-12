@@ -96,12 +96,13 @@ title("Correlations", line = -2) # adjust placement of the plot title.
 # Configure the environment to have the right functionality.
 # Make sure we have the PortfolioAnalytics and ROI and related packages installed
 # Only run the install.packages function once.
-# install.packages("ROI", "ROI.plugin.glpk", "ROI.plugin.quadprog")
-# install.packages("PortfolioAnalytics")
+# install.packages(c("PortfolioAnalytics", "ROI", "ROI.plugin.quadprog"))
 #
 # Make sure the PortfolioAnalytics package and the ROI optimiser packages are loaded.
 library(ROI)
+library(ROI.plugin.quadprog)
 library(PortfolioAnalytics)
+
 #------------------------------------------------------------------------------------------
 
 # Initialise the portfolio specification using names of assets
@@ -109,9 +110,6 @@ portfolio <- portfolio.spec(assets=industries)
 
 portfolio <- add.constraint(portfolio, type="full_investment")
 #portfolio <- add.constraint(portfolio, type="long_only")
-
-# Force weights on assets to sum to 1
-#portfolio <- add.constraint(portfolio=portfolio, type="weight_sum",  min_sum=1, max_sum=1, enabled = TRUE)
 
 # Make sure these bounds do not constrain the minimum variance or tangency portfolio weights!
 # Upper and lower bound on weight for each industry
@@ -124,27 +122,39 @@ portfolio <- add.objective(portfolio=portfolio, type="risk", name="StdDev")
 # Solve for the weights in the minimum variance portfolio of risky assets
 optimisedMinimumVariancePortfolio <- optimize.portfolio(R=industryReturnsXTS, portfolio=portfolio, optimize_method="ROI", trace=TRUE)
 print(optimisedMinimumVariancePortfolio)
+
 plot(optimisedMinimumVariancePortfolio, risk.col="StdDev", return.col="mean", main="Minimum Variance Portfolio", chart.assets=TRUE)
+
 (optimisedMinimumVariancerPortfolioReturn <- t(optimisedMinimumVariancePortfolio$weights) %*% industryMeanReturns)
 (optimisedMinimumVariancerPortfolioStdDev <- optimisedMinimumVariancePortfolio$objective_measures$StdDev)
 (sharpeRatio <- (optimisedMinimumVariancerPortfolioReturn - rf) /optimisedMinimumVariancePortfolio$objective_measures$StdDev)
 
 # Generate the efficient frontier of risky-asset portfolios and show the security market line
 efficientFrontier <- create.EfficientFrontier(R=industryReturnsXTS, portfolio = portfolio, type = "mean-sd", n.portfolios = 25)
+
 summary(efficientFrontier)
+
 chart.EfficientFrontier(efficientFrontier, match.col = "StdDev", 
                         element.color = "darkgray", main = "Efficient Frontier",
                         RAR.text = "Sharpe ratio", rf = rf, tangent.line = TRUE,
                         chart.assets = TRUE, labels.assets = TRUE, pch.assets = 21)
+
+# Plot the weights along the efficient frontier
+par(mfrow=c(1,1))
+chart.EF.Weights(efficientFrontier, main= "Weights on the Efficient Frontier", match.col="StdDev", colorset=rainbow(n = length(industries)))
+
+# Get imprecise tangency portfolio from the efficient frontier - bad way to get tangency portfolio.
 means = efficientFrontier$frontier[,c("mean")]
 stddevs = efficientFrontier$frontier[,c("StdDev")]
 sharpeRatios = (means - rf) / stddevs
 max(sharpeRatios)
-# Note this gets a dodgy tangency portfolio because we have not optimised the sharpe ratio.
+
+# Note this gets an imprecise tangency portfolio because we have not optimised the sharpe ratio.
 (dodgyTangencyPortfolio = efficientFrontier$frontier[sharpeRatios == max(sharpeRatios),])
 (dodgyTangencyPortfolioWeights = dodgyTangencyPortfolio[4:length(dodgyTangencyPortfolio)])
 
 # Define the sharpe ratio calculation function - that nests a portfolio optimisation problem.
+# Note that the negative is returned because the optimisation is about minimisation.
 frontierPortfolioSharpeRatio <- function(expectedReturn) {
   testPortfolio <- add.constraint(portfolio=portfolio, type="return", return_target=expectedReturn)
   optimisedTestPortfolio <- optimize.portfolio(R=industryReturnsXTS, portfolio=testPortfolio, optimize_method="ROI", trace=TRUE)
@@ -162,12 +172,11 @@ results <- optim(mean(industryMeanReturns), frontierPortfolioSharpeRatio, method
 tangencyPortfolioRequiredReturn <- results$par
 tangencyPortfolioDefinition <- add.constraint(portfolio=portfolio, type="return", return_target=tangencyPortfolioRequiredReturn)
 tangencyPortfolio <- optimize.portfolio(R=industryReturnsXTS, portfolio=tangencyPortfolioDefinition, optimize_method="ROI", trace=TRUE)
+
 (tangencyPortfolioReturn <- t(tangencyPortfolio$weights) %*% industryMeanReturns)
 tangencyPortfolio$objective_measures
 (sharpeRatio <- (tangencyPortfolioReturn - rf) /tangencyPortfolio$objective_measures$StdDev)
 tangencyPortfolio$weights
 plot(tangencyPortfolio, risk.col="StdDev", return.col="mean", main="Tangency Portfolio", chart.assets=TRUE)
 
-# Plot the weights along the efficient frontier
-par(mfrow=c(1,1))
-chart.EF.Weights(efficientFrontier, main= "Weights on the Efficient Frontier", match.col="StdDev", colorset=rainbow(n = length(industries)))
+

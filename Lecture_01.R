@@ -23,6 +23,7 @@
 # - Storing data in R including lists of values (data samples)
 #   (http://michaelminn.net/tutorials/r-representing-data/)
 #
+#
 # - Matrix operations
 # Some sources of assistance:
 # https://www.statmethods.net/advstats/matrix.html
@@ -208,16 +209,14 @@ my_geometricMean <- function(x) {
 my_geometricMean2 <- function(x) {
   exp( (1/length(x)) * sum(log(x)) )
 }
-X_geometric_mean2 <- my_geometricMean2(X)
-X_geometric_mean2
+(X_geometric_mean2 <- my_geometricMean2(X))
 
 # Make sure the two formulae give the same result for
 # the geometric mean
 X_geometric_mean == X_geometric_mean2
 
 # Use the inbuilt function to compute the Median of X
-X_median <- median(X)
-X_median
+(X_median <- median(X))
 
 # Quartiles - computed using the inbuilt qantiles function.
 
@@ -240,6 +239,7 @@ X_quantiles[3] == X_median
 # variance
 (X_variance <- var(X))
 
+
 # standard deviation
-(X_stdev <- sd(X))
+(X_stdev <- sd(X))(X_stdev <- sd(X))
 

@@ -1,128 +1,27 @@
 #-------------------------------------------------------------------------------------#
 # ECMT2130 Financial Econometrics
 # Written by Geoff Shuetrim
-# Lecture 06: Multifactor models and Principle Component Analysis
+# Lecture 06: Principal Component Analysis
 #
 # Topics:
 #
-# - Multiple regression complex restrictions on coefficients.
-# - Principle component analysis and interpretation.
+# - Principal component analysis and interpretation.
 #
 # Data source (Ken French)
 # https://mba.tuck.dartmouth.edu/pages/faculty/ken.french/data_library.html#Benchmarks
 #
-# Industry definitions
-# https://mba.tuck.dartmouth.edu/pages/faculty/ken.french/Data_Library/det_49_ind_port.html
-# 
-# Demos: Good practice and great graphics.
+# Demos: Good practice and great graphics for PCA using R.
 # https://rpubs.com/esobolewska/pcr-step-by-step
 # http://www.sthda.com/english/articles/31-principal-component-methods-in-r-practical-guide/118-principal-component-analysis-in-r-prcomp-vs-princomp/
 #-------------------------------------------------------------------------------------
 
 #-------------------------------------------------------------------------------------
-# Multiple regression model.
-# Population model: y = 1 + 1 * X_1 + 1 * X_2 + u
-#-------------------------------------------------------------------------------------
-
-# Simulate small number of observations
-
-n = 30
-beta_0 = 1.0
-beta_1 = 1.0
-beta_2 = 1.25
-
-# Generate the regressors and error term as i.i.d. standard normal variates
-X_1 = rnorm(n)
-X_2 = rnorm(n)
-u = rnorm(n)
-
-# Create the dependent variable
-y = beta_0 + beta_1 * X_1 + beta_2 * X_2 + u
-
-# Create a data frame to contain our data.
-ourData <- data.frame(y, X_1, X_2, u)
-
-unrestrictedModel <- lm(y ~ X_1 + X_2, ourData)
-unrestrictedModelSummary <- summary(unrestrictedModel)
-unrestrictedModelSummary
-
-#-------------------------------------------------------------------------------------
-# Starting simple: Test whether beta_1 = 0
-#-------------------------------------------------------------------------------------
-
-# Get coefficient and standard error.
-beta1Hat = coef(unrestrictedModelSummary)["X_1","Estimate"]
-seBeta1Hat = coef(unrestrictedModelSummary)["X_1","Std. Error"]
-
-# Create t ratio (exclusion test statistic for beta_1)
-tStar = beta1Hat / seBeta1Hat
-
-
-# Get the p-value for the t ratio (2-tailed test)
-help("pt")
-pValue = ifelse( tStar < 0, 2*pt(tStar, n-3), 2*(1-pt(tStar, n-3))) 
-
-# Compare scaled p-values constructed manually and in the regression summary.
-pValue
-coef(unrestrictedModelSummary)["X_1","Pr(>|t|)"]
-
-#-------------------------------------------------------------------------------------
-# Test whether beta_1 = beta_2
-#-------------------------------------------------------------------------------------
-
-# Method 1 - construct t-statistic.
-beta1Hat = coef(unrestrictedModelSummary)["X_1","Estimate"]
-beta2Hat = coef(unrestrictedModelSummary)["X_2","Estimate"]
-
-# Get the estimated variance covariance matrix for the coefficients.
-vCovHat = vcov(unrestrictedModel)
-varBeta1Hat = vCovHat["X_1","X_1"]
-varBeta2Hat = vCovHat["X_2","X_2"]
-covHat = vCovHat["X_1","X_2"]
-varHat = varBeta1Hat + varBeta2Hat - 2*covHat
-seHat = sqrt(varHat)
-tStar = (beta1Hat - beta2Hat) / seHat
-pValue = ifelse( tStar < 0, 2*pt(tStar, n-3), 2*(1-pt(tStar, n-3)))
-pValue
-
-# Method 2 - construct new regressor and use the reported p-value on X_2 t-ratio
-ourData$XSum <- ourData$X_1 + ourData$X_2
-transformedUnrestrictedModel <- lm(y ~ XSum + X_2, ourData)
-transformedUnrestrictedModelSummary <- summary(transformedUnrestrictedModel)
-transformedUnrestrictedModelSummary
-
-pValue = coef(transformedUnrestrictedModelSummary)["X_2","Pr(>|t|)"]
-pValue
-
-# Method 3 - F test of restriction
-restrictedModel <- lm(y ~ XSum, ourData)
-restrictedModelSummary <- summary(restrictedModel)
-restrictedModelSummary
-# Use built in F-testing function in R:
-pValue = anova(unrestrictedModel, restrictedModel)[2,"Pr(>F)"]
-pValue
-
-# Or to be cool, construct the F statistic manually from R_squared values
-restrictedRsquared = restrictedModelSummary[["r.squared"]]
-unrestrictedRsquared = unrestrictedModelSummary[["r.squared"]]
-fStar = ( (unrestrictedRsquared - restrictedRsquared) / 1 ) / ( (1 - unrestrictedRsquared) / (n-3) )
-pValue = 1-pf(fStar,1,n-3)
-pValue
-
-# Or, construct the F statistic manually from restricted and unrestricted sums of squared residuals
-restrictedSSR = sum( restrictedModel$resid^2 )
-unrestrictedSSR = sum( unrestrictedModel$resid^2 )
-fStar = ( (restrictedSSR - unrestrictedSSR) / 1 ) / ( (unrestrictedSSR) / (n-3) )
-pValue = 1-pf(fStar,1,n-3)
-pValue
-
-
-#-------------------------------------------------------------------------------------
-# Principle components analysis
+# Principal components analysis
 # - Packages: corrplot for correlation matrix graphs and factoextra for PCA graphical analysis
 #-------------------------------------------------------------------------------------
 
 # Run the install packages command once if factoextra is not installed already.
+# Useful for visualisation of PCA results.
 # install.packages("factoextra")
 library(factoextra)
 
@@ -130,72 +29,146 @@ library(factoextra)
 # install.packages("corrplot")
 library(corrplot)
 
+# install.packages("MASS")
+library(MASS)
+
+# install.packages("GMCM")
+# For column standard deviation function
+library(GMCM)
+
 #-------------------------------------------------------------------------------------
-# Analysis of relationship of industry return principle components and factors.
+# Round trip the data: 
+# original data 
+# to standardised data 
+# to principal components 
+# to standardised data 
+# to original data
 #-------------------------------------------------------------------------------------
 
-# Generate the principle components as i.i.d. standard normal variates (these are typically not observed)
-observationCount = 1000
-componentCount <- 2
-principleComponents <- matrix( rnorm(observationCount*componentCount,mean=0,sd=1), observationCount, componentCount) 
+# Generate the data
+n = 100
+k <- 2
 
-# Confirm rows and columns of the matrix containing the principle components
-dim(principleComponents)
+set.seed(1) 
 
-# Create square matrix of weights that maps the principle components to the observed data 
-# Initial mapping is just 1:1 - each observed variable is a principle component
-weights = diag(replicate(1,componentCount))
+# list of means - both equal to 0
+means <- as.matrix(replicate(k,0))
 
-# Try increasing the multiple of the first principle component that gives us the first observed variable
-# What effect does this have on the ability to identify the "true" principle component with scaling TRUE and FALSE.
-weights[1,1] = 1
+# Create the variance covariance with a 0.9 correlation between x1 and x2
+vcov = diag(replicate(k,1))
+vcov[1,2] <- 0.9
+vcov[2,1] <- vcov[1,2]
 
-# Alternatively try to make the second observed variable a larger multiple of the first principle component
-# What effect does this have on the ability to identify the "true" principle component with scaling TRUE and FALSE.
-weights[1,1] = 4
+originalData <- MASS::mvrnorm(n=n, mu = means, Sigma = vcov)
 
-data <- principleComponents %*% weights
+# Check original data - sampling variation causes deviation from population parameters
+(originalMeans <- colMeans(originalData))
+(originalStdDevs <- GMCM:::colSds(originalData))
 
-# Confirm rows and columns of the matrix containing the observed data
-dim(data)
+# Plot the correlations of the original data
+corrplot(cor(originalData), method = "ellipse")
 
-# Do the principle components analysis: Try with all observed variables scaled to have the same standard deviation (and without).
-pcaResults <- prcomp(data, center = TRUE, scale. = FALSE)
+# Standardise the data (mean zero and unit standard deviation/variance)
+help(scale)
+standardisedData <- scale(originalData, center = TRUE, scale = TRUE)
+
+# Check standardised data means and standard deviations
+colMeans(standardisedData)
+GMCM:::colSds(standardisedData)
+
+# Plot the correlations of the standardised data
+corrplot(cor(standardisedData), method = "ellipse")
+
+# Do the eigenvalue decomposition of the variance covariance matrix of the scaled data.
+pca1Results <- prcomp(standardisedData, center = FALSE, scale. = FALSE)
+summary(pca1Results)
+# alternatively do the same thing with:
+pcaResults <- prcomp(originalData, center = TRUE, scale. = TRUE)
+summary(pcaResults)
+
+# Get the eigenvalues
 (eigenvalues = get_eig(pcaResults))
+
+# Compute the percentage of variation explained by each principal component.
+(eigenvalues$eigenvalue / sum(eigenvalues$eigenvalue))
+
+# View the percentage of variation explained by each eigenvector.
 fviz_eig(pcaResults)
 
-#fviz_pca_var(pcaResults, axes = c(1, 2))
-#fviz_pca_var(pcaResults, axes = c(3, 4))
+# Get the eigenvectors
+(eigenvectors <- pcaResults$rotation)
 
-estimatedPrincipleComponents <- pcaResults$x
-dim(estimatedPrincipleComponents)
+# Have a look at how the axes have been rotated to find the principal components.
+# Change the sign of the correlation when generating the original data and recreate these graphs.
+help(fviz_pca_var)
+fviz_pca_biplot(pcaResults, axes = c(1, 2)) +
+  xlim(-4, 4) + ylim (-4, 4)
+fviz_pca_var(pcaResults, axes = c(1, 2)) 
 
-# Concatenate (columnwise) actual principle components and estimated principle components
-pcs <- data.frame(cbind(principleComponents,estimatedPrincipleComponents))
-dim(pcs)
+# get the principal components
+principalComponents <- pcaResults$x
+dim(principalComponents)
 
-# Plot the correlations and focus attention on the top right quadrant.
-corrplot(cor(pcs), method = "ellipse")
+# Plot the correlations of the principal components - they are orthogonal
+corrplot(cor(principalComponents), method = "ellipse")
 
-pc1Model <- lm(V1 ~ 0 + PC1 + PC2, data = pcs)
+# Get the standardised data back from the principal components
+newStandardisedData <- principalComponents %*% solve(eigenvectors)
 
-# Scatter plot of predicted and actual values of variable 1
-plot(predict(pc1Model), pcs$V1)
+# Compare the first few observations to make sure we got back what we wanted.
+head(newStandardisedData)
+head(standardisedData)
 
-# What do you notice about the coefficient values on the two principle components.
-# Run it several times with different random samples - does anything change between runs?
-summary(pc1Model)
+# Get the original data from the principal components by unscaling (reversing the scale operation in two steps to get operation ordering right)
+newOriginalData <- scale((principalComponents %*% solve(eigenvectors)), center = FALSE, scale = (1 / originalStdDevs))
+GMCM:::colSds(newOriginalData)
+newOriginalData <- scale(newOriginalData, center = -originalMeans, scale = FALSE)
+colMeans(newOriginalData)
 
-pc1Modelb <- lm(V1 ~ 0 + PC1, data = pcs)
-
-# Scatter plot of predicted and actual values of variable 1
-plot(predict(pc1Modelb), pcs$V1)
-
-# Compare the coefficient value to the one obtained from the regression on two regressors.
-summary(pc1Modelb)
+# Compare the first few observations to make sure we got back what we wanted.
+head(newOriginalData)
+head(originalData)
 
 #-------------------------------------------------------------------------------------
-# Analysis of relationship of industry return principle components and factors.
+# Explore the impact of not scaling on the principal component construction
+# Try running this experiment with different correlation in the original data.
+#-------------------------------------------------------------------------------------
+
+# Generate the data
+n = 100
+k <- 2
+
+set.seed(1) 
+
+# list of means - both equal to 0
+means <- as.matrix(replicate(k,0))
+
+# Create the variance covariance with a 0.9 correlation between x1 and x2
+vcov = diag(replicate(k,1))
+vcov[1,2] <- 0
+vcov[2,1] <- vcov[1,2]
+
+originalData <- MASS::mvrnorm(n=n, mu = means, Sigma = vcov)
+
+# Increase scale of the first variable
+scaleFactor <- 10
+originalData[,1] <- originalData[,1] * scaleFactor
+
+# Do the principal components analysis: Try with all observed variables 
+# scaled to have the same standard deviation (and without).
+pcaResultsWithoutScaling <- prcomp(originalData, center = TRUE, scale. = FALSE)
+fviz_eig(pcaResultsWithoutScaling)
+fviz_pca_biplot(pcaResultsWithoutScaling, axes = c(1, 2)) +xlim(-40, 40) + ylim (-40, 40)
+
+# Do the principal components analysis: Try with all observed variables 
+# scaled to have the same standard deviation (and without).
+pcaResultsWithScaling <- prcomp(originalData, center = TRUE, scale. = TRUE)
+fviz_eig(pcaResultsWithScaling)
+fviz_pca_biplot(pcaResultsWithScaling, axes = c(1, 2)) +xlim(-10, 10) + ylim (-10, 10)
+
+#-------------------------------------------------------------------------------------
+# Analysis of principal components for industry returns data
+# Compare first principal component to excess return on market.
 #-------------------------------------------------------------------------------------
 
 # Load the data
@@ -213,54 +186,74 @@ dates <- as.Date(data$Date)
 # Get names of industries
 industries <- colnames(data[9:ncol(data)])
 
-# Remove the non-numeric data columns
-data <- data[,5:ncol(data)]
-
-# Convert market and industry returns into excess returns while still working with a data frame.
-data$RM = (data$RM - data$RF)
+# Get excess returns
 data[,industries] = (data[,industries] - data$RF)
+rmData = (data$RM - data$RF)
 
-# Create the extended timeseries object needed for portfolio analytics
-dataXTS <- xts(data, order.by=dates)
+# Remove the non-industry data columns while creating XTS
+dataXTS <- xts(data[,9:ncol(data)], order.by=dates)
 
-# Normalise data (zero mean and unit standard deviation)
-help(scale) # Find out more about the scaling function
-normDataXTS <- dataXTS
-normDataXTS$RM = scale(dataXTS$RM)
-normDataXTS$SMB = scale(dataXTS$SMB)
-normDataXTS$HML = scale(dataXTS$HML)
-normDataXTS[,industries] = scale(data[,industries])
+# Generate excess returns on market as XTS for later comparison
+rmXTS <- xts(rmData, order.by=dates)
 
 # Choose the time span of interest
 timespan = "19800101/20001231"
 
 # Plot correlation structure among the three factors in the fama-french 3 factor model
-corrplot(cor(dataXTS[timespan][,c("RM", "SMB", "HML", industries)]), method = "ellipse")
+corrplot(cor(dataXTS[timespan]), method = "ellipse")
 
 # Do PCA
-pca <- prcomp(normDataXTS[timespan][,c("PerSv","BusSv","Hardw", "Softw", "Chips", "LabEq")], center=TRUE, scale.=TRUE)
+pca <- prcomp(dataXTS[timespan], center=TRUE, scale.=TRUE)
 
 # Get the eigenvalues and associated information
 (eigenvalues = get_eig(pca))
 
-# Note that eigenvalues obtain from the computed standard deviations of the principle components
+# Note that eigenvalues are related to the standard deviations of the principal components
 pca$sdev^2
 
-#Visualse the importance of each principle component
+# Visualise the importance of each principal component
 fviz_eig(pca)
 
-# Visualise industry returns, explained by the various principle components.
-fviz_pca_var(pca,axes = c(1, 2))
-fviz_pca_var(pca,axes = c(3, 4))
-fviz_pca_var(pca,axes = c(5, 6))
+# Get the principal components and augment with the market excess return
+principalComponents <- as.data.frame(pca$x)
 
-# Get the principle components and augment with the market excess return
-principleComponents <- as.data.frame(pca$x)
-principleComponents$RM <- dataXTS[timespan]$RM
+# Plot the first principal component against the excess return on the market.
+scatter.smooth(principalComponents[,1], rmXTS[timespan])
 
-# Regress the factor on various sets of principle components of the industry returns
-summary(lm(RM ~ PC1 + PC2 + PC3 + PC4 + PC5 + PC6, data = principleComponents))
+#-------------------------------------------------------------------------------------
+# Removing the wrong principal component for multicollinearity.
+#-------------------------------------------------------------------------------------
 
+# Generate the data
+n = 30
+k <- 2
 
+set.seed(1) 
 
+# list of means - both equal to 0
+means <- as.matrix(replicate(k,0))
 
+# Create the variance covariance with a 0.9 correlation between x1 and x2
+vcov = diag(replicate(k,1))
+vcov[1,2] <- 0.95
+vcov[2,1] <- vcov[1,2]
+
+originalData <- MASS::mvrnorm(n=n, mu = means, Sigma = vcov)
+
+# Do PCA
+pca <- prcomp(originalData, center=TRUE, scale.=TRUE)
+fviz_eig(pca)
+principalComponents <- as.data.frame(pca$x)
+
+data <- cbind(originalData, principalComponents)
+colnames(data) <- c("x1", "x2", "p1", "p2")
+
+data$y = data$p2 + rnorm(n,mean = 0, sd = 1.95)
+
+corrplot(cor(data), method = "ellipse")
+
+summary(lm(y~x1+x2, data=data))
+
+summary(lm(y~p1, data=data))
+
+summary(lm(y~p2, data=data))

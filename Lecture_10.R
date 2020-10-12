@@ -100,3 +100,31 @@ rm.xts <- xts(equityIndexData$Rm, order.by=dates)
 summary(model <- garchFit(formula=~garch(1,1),data=rm.xts,trace=TRUE))
 
 
+#-------------------------------------------------------------------------------------
+# Impact of clustered volatility on standard errors from OLS regression
+#-------------------------------------------------------------------------------------
+
+n <- 1000
+spec <- garchSpec(model = list(alpha = 0.7, beta = 0.2, omega = 1))
+set.seed(1)
+# Simulate a GARCH(1,1) errors to get errors with volatility clustering
+data <- as.matrix(garchSim(spec, n = n, extended = FALSE))
+heteroskedasticErrors <- scale(data, center = TRUE, scale = TRUE)
+plot(heteroskedasticErrors)
+
+set.seed(1)
+homoskedasticErrors <- rnorm(n = n)
+homoskedasticErrors <- scale(homoskedasticErrors, center = TRUE, scale = TRUE)
+plot(homoskedasticErrors)
+
+x <- rnorm(n = n)
+
+heteroskedasticY <- x + heteroskedasticErrors
+homoskedasticY <- x + homoskedasticErrors
+
+data <- data.frame(cbind(x, heteroskedasticY, homoskedasticY))
+colnames(data) <- c("x", "heteroskedasticY", "homoskedasticY")
+
+summary(lm(homoskedasticY ~ x, data=data))
+summary(lm(heteroskedasticY ~ x, data=data))
+

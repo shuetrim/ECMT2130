@@ -11,29 +11,57 @@
 #
 # Topics:
 #
-# - CAPM testing
-#
+# - CAPM time series regression by industry over different time periods.
+# 
 #-------------------------------------------------------------------------------------
 
-# Load the data
-# Make sure that the readxl package of functionality is available.
-# Run the following command if readxl is not installed already.
-# install.packages("readxl")
+#-------------------------------------------------------------------------------------
+# Load the relevant libraries
+#-------------------------------------------------------------------------------------
+
+# Log progress to help with debugging.
+# install.packages("futile.logger")
+library(futile.logger)
+
+# Ensure that the logger reports debug messages.
+flog.threshold(DEBUG)
+
 library(readxl)
 
+library(xts)
+
+#-------------------------------------------------------------------------------------
+# Load and organise the data
+#-------------------------------------------------------------------------------------
+
 # Read data from spreadsheet in same folder as this R script.
-myData <- read_excel("Fama_French_industry_monthly_returns.xlsx")
+rawData <- read_excel("Fama_French_industry_monthly_returns.xlsx")
+
+# Get the dates to create the XTS object
+dates <- as.Date(rawData$Date)
+
+# Remove the columns we are not interested in.
+rawData$YearMonth <- NULL
+rawData$Year <- NULL
+rawData$Month <- NULL
+rawData$SMB <- NULL
+rawData$HML <- NULL
+
+# Get the industry names
+columnNames = names(rawData)
+industryNames <- columnNames[4:length(columnNames)]
+
+# Create the industry returns XTS object
+industryReturns <- xts(rawData[,industryNames], order.by=dates)
+
+# Create the risk free returns XTS object
+riskFreeReturns <- xts(rawData$RF, order.by=dates)
+
+# Create the market returns XTS object
+marketReturns <- xts(rawData$RM, order.by=dates)
 
 # Create the excess market return over the risk free return
-myData$excessMarketReturn = myData$RM - myData$RF
-
-# Move excess market return to be before the industry returns
-names = names(myData)
-names = names[c(1:8, length(names), 9:(length(names)-1))]
-myData <- myData[, names]
-
-# Get a list of industry names to iterate over
-industryNames <- names(myData)[10:ncol(myData)]
+excessMarketReturns <- marketReturns - riskFreeReturns
 
 # Create the matrix or grid that will hold the regression output
 results <- matrix(ncol=11, nrow=length(industryNames))
@@ -41,50 +69,55 @@ results <- matrix(ncol=11, nrow=length(industryNames))
 # Initialise counter over industries
 i<-0
 
+# Choose timespan for the regression
+timespan <- "20000101/20091231"
+
+# For examining out of sample performance
+heldBacktimespan <- "20100101/20201231"
+
 # Iterate over industries, printing out industry results.
 for (industryName in industryNames) {
-  print(paste("Industry:", industryName), row.names = FALSE)
+  
+  flog.debug("Doing CAPM regression for the %s industry", industryName)
   i <- i + 1
-  info <- myData[,c(industryName)] - myData[,c("RF")]
-  myData$excessIndustryReturn <- info[,1]
+  excessIndustryReturns <- industryReturns[,c(industryName)] - riskFreeReturns
+  colnames(excessIndustryReturns) <- c("excessIndustryReturns")
+  estimationData <- merge(excessIndustryReturns, excessMarketReturns)
   
-  # Estimate using monthly data from 1970 or later to 2009 inclusive (Data is missing for some industries before 1970)
-  estimationData <- subset(myData,myData$Year>=1970 & myData$Year<2010)
-  myModel <- lm(excessIndustryReturn ~ excessMarketReturn, data=estimationData)
-  mySummary <- summary(myModel)
-  
-  print(mySummary)
+  industryModel <- lm(excessIndustryReturns ~ excessMarketReturns, data=estimationData[timespan])
+  regressionSummary <- summary(industryModel)
+  coefficientDetails <- regressionSummary$coefficients
   # Extract the information to use in assessing industries
-  alpha <- mySummary[["coefficients"]]["(Intercept)", "Estimate"]
-  alphaT <- mySummary[["coefficients"]]["(Intercept)", "t value"]
-  alphaP <- mySummary[["coefficients"]]["(Intercept)", "Pr(>|t|)"]
-  beta <- mySummary[["coefficients"]]["excessMarketReturn", "Estimate"]
-  betaT <- mySummary[["coefficients"]]["excessMarketReturn", "t value"]
-  betaP <- mySummary[["coefficients"]]["excessMarketReturn", "Pr(>|t|)"]
-  R <- mySummary[["r.squared"]]
+  alpha <- coefficientDetails["(Intercept)", "Estimate"]
+  alphaT <- coefficientDetails["(Intercept)", "t value"]
+  alphaP <- coefficientDetails["(Intercept)", "Pr(>|t|)"]
+  beta <- coefficientDetails["excessMarketReturns", "Estimate"]
+  betaT <- coefficientDetails["excessMarketReturns", "t value"]
+  betaP <- coefficientDetails["excessMarketReturns", "Pr(>|t|)"]
+  R <- regressionSummary$r.squared
   
-  # Measure out of sample alpha  
-  heldBackData <- subset(myData,myData$Year>=2010)
-  
-  inSampleIndustryReturn <- 100*( prod(1 + estimationData[,industryName]/100 ) ^ (1/nrow(estimationData)) - 1)
-  inSampleMarketReturn <- 100*( prod(1 + estimationData[,"RM"]/100 ) ^ (1/nrow(estimationData)) - 1)
-  inSampleRiskFreeReturn <- 100*( prod(1 + estimationData[,"RF"]/100 ) ^ (1/nrow(estimationData)) - 1)
-  expectedPerformance = alpha + (beta-1) * (inSampleMarketReturn - inSampleRiskFreeReturn)
+  # Geometric weighted average returns for the industry
+  inSampleIndustryReturn <- 100*( prod(1 + industryReturns[timespan][,industryName]/100 ) ^ (1/nrow(industryReturns[timespan])) - 1)
+  inSampleMarketReturn <- 100*( prod(1 + marketReturns[timespan]/100 ) ^ (1/nrow(marketReturns[timespan])) - 1)
+  inSampleRiskFreeReturn <- 100*( prod(1 + riskFreeReturns[timespan]/100 ) ^ (1/nrow(riskFreeReturns[timespan])) - 1)
+  fittedIndustryReturn = 100*( (prod(1 + (riskFreeReturns[timespan] + alpha + beta * excessMarketReturns[timespan])/100 )) ^ (1/nrow(riskFreeReturns[timespan])) - 1 )
+  fittedIndustryPerformance = fittedIndustryReturn - inSampleMarketReturn
   inSampleActualPerformance = (inSampleIndustryReturn - inSampleMarketReturn)
   
-  outSampleIndustryReturn <- 100*( prod(1 + heldBackData[,industryName]/100 ) ^ (1/nrow(heldBackData)) - 1)
-  outSampleMarketReturn <- 100*( prod(1 + heldBackData[,"RM"]/100 ) ^ (1/nrow(heldBackData)) - 1)
-  outSampleRiskFreeReturn <- 100*( prod(1 + heldBackData[,"RF"]/100 ) ^ (1/nrow(heldBackData)) - 1)
-  outSampleActualPerformance = (outSampleIndustryReturn - outSampleMarketReturn)
+  outOfSampleIndustryReturn <- 100*( prod(1 + industryReturns[heldBacktimespan][,industryName]/100 ) ^ (1/nrow(industryReturns[heldBacktimespan])) - 1)
+  outOfSampleMarketReturn <- 100*( prod(1 + marketReturns[heldBacktimespan]/100 ) ^ (1/nrow(marketReturns[heldBacktimespan])) - 1)
+  outOfSampleActualPerformance = (outOfSampleIndustryReturn - outOfSampleMarketReturn)
   
   # Store the information in row i of the results grid
-  results[i,] <- c(industryName, alpha, alphaT, alphaP, beta,  betaT, betaP, R, expectedPerformance, inSampleActualPerformance, outSampleActualPerformance)
+  results[i,] <- c(industryName, alpha, alphaT, alphaP, beta,  betaT, betaP, R, fittedIndustryPerformance, inSampleActualPerformance, outOfSampleActualPerformance)
   
 }
 
 # Turn the results grid into a data frame for easy inspection
 results <- data.frame(as.data.frame(matrix(unlist(results), nrow=length(industryNames))))
-colnames(results)<- c("industry","alpha","alpha t ratio","alpha p value", "beta", "beta t ratio", "beta p value", "R", "expected performance", "in sample performance", "out sample performance")
+colnames(results)<- c("industry","alpha","alpha t ratio","alpha p value", "beta", "beta t ratio", "beta p value", "R", "fitted-performance", "in-sample performance", "out-of-sample performance")
+rownames(results)<-industryNames
+
 # Double click on results in the global environment to inspect and analyse within R
 
 # Make sure that numbers are recognised as numbers instead of "factors" in the results data frame.
@@ -95,7 +128,5 @@ results[indx] <- lapply(results[indx], function(x) as.numeric(as.character(x)))
 # Write results to CSV file if you want to analyse the output in Excel.
 write.table(results, "Lecture_05_results.csv", append = FALSE, sep = ",", dec = ".",
             row.names = FALSE, col.names = TRUE)
-
-
 
 
